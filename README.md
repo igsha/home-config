@@ -1,7 +1,6 @@
 # home-config
 
 A simple home configuration manager for NixOS.
-It is based on `stow`.
 
 # Usage
 

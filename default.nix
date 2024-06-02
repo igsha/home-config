@@ -1,19 +1,17 @@
 { config, lib, pkgs, ... }:
 
 let
-  update-home-configs = cfg: basedir: let
-    replaceBaseDir = dir: ''"$BASEDIR${lib.strings.removePrefix basedir dir}"'';
-    stowArgs = dir: ''stow --dotfiles -v --no-folding -d ${replaceBaseDir dir} -t "$HOME" "$@"'';
-    buildArgs = x: (stowArgs x.dir) + " " + (lib.strings.concatStringsSep " " x.packages);
-    args = builtins.map buildArgs (builtins.attrValues cfg);
-  in pkgs.writeShellApplication {
+  formPackage = dir: basedir: p: lib.strings.removePrefix "/" "${lib.strings.removePrefix basedir dir}/${p}";
+  mapPackages = ps: dir: basedir: builtins.map (formPackage dir basedir) ps;
+  getPackagesList = cfg: basedir: lib.flatten (builtins.map (x: mapPackages x.packages x.dir basedir) (builtins.attrValues cfg));
+  packages-list = cfg: basedir: pkgs.writeText "packages.txt"
+    (builtins.concatStringsSep "\n" (getPackagesList cfg basedir));
+  update-home-configs = cfg: basedir: pkgs.substituteAll {
     name = "update-home-configs";
-    runtimeInputs = [ pkgs.stow ];
-    text = ''
-      BASEDIR="$1" # ${basedir}
-      shift
-      ${lib.strings.concatStringsSep "\n" args}
-    '';
+    src = ./update-home-configs.sh.in;
+    isExecutable = true;
+    dir = "/bin/";
+    packagesList = pkgs.writeText "packages.txt" (builtins.concatStringsSep "\n" (getPackagesList cfg basedir));
   };
   packageOps = {
     options = {
@@ -23,9 +21,9 @@ let
         example = [ "sx" "vifm" "mpv" ];
       };
       dir = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.path;
         description = "Path to the folder with packages";
-        example = builtins.toString ./home-config;
+        example = ./home-config;
       };
     };
   };
@@ -38,7 +36,7 @@ in {
       example = {
         i3 = {
           packages = [ "sx" "vifm" "mpv" ];
-          dir = builtins.toString ./home-config;
+          dir = ./home-config;
         };
       };
     };

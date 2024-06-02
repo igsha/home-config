@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PACKAGESLISTFILE="@packagesList@"
+readarray -t USAGE << EOM
+$0 dotfilesdir [-n] [-D] [-p package-list-file] | -h
+package file: $PACKAGESLISTFILE
+EOM
+DOTFILESDIR=
+DRYRUN=0
+NODOT=0
+
+ARGS=$(getopt -u -o nhDp: -l dry-run,help,no-dotfiles,package-list: -- "$@")
+eval "set -- $ARGS"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -n|--dry-run) DRYRUN=1;;
+        -h|--help) printf "%s\n" "${USAGE[@]}" && exit 0;;
+        -D|--no-dotfiles) NODOT=1;;
+        -p|--package-list) PACKAGESLISTFILE="$2"; shift;;
+        --) ;;
+        *)
+            [[ -z "$DOTFILESDIR" ]] || { echo "Too many dotfilesdir: $1"; exit 1; }
+            DOTFILESDIR=${1%/};;
+    esac
+    shift
+done
+
+[[ -n "$DOTFILESDIR" ]] || { echo "No dotfilesdir supplied"; exit 2; }
+
+runorskip() {
+    if [[ "$DRYRUN" -eq 0 ]]; then "$@"; fi
+}
+
+while read -r dir; do
+    SEARCHDIR="$DOTFILESDIR/$dir"
+    while read -r line; do
+        TARGET="$HOME/$line"
+        if [[ "$NODOT" -eq 0 ]]; then
+            TARGET="$(sed 's/dot-/\./g' <<< "$TARGET")"
+        fi
+
+        TARGETDIR="$(dirname "$TARGET")"
+        SOURCE="$DOTFILESDIR/$dir/$line"
+        if [[ ! -d "$TARGETDIR" ]]; then
+            echo Creating dir $TARGETDIR ...
+            runorskip mkdir -p "$(dirname "$TARGETDIR")"
+        fi
+
+        if [[ -e "$TARGET" ]]; then
+            if [[ "$(realpath "$SOURCE")" != "$(realpath "$TARGET")" ]]; then
+                echo "Remove $TARGET cause it is not $SOURCE" && exit 3
+            fi
+        else
+            echo "Creating link $SOURCE => $TARGET ..."
+            runorskip ln -s "$SOURCE" "$TARGET"
+        fi
+    done < <(find $SEARCHDIR \( -type f -o -type l \) -printf '%P\n')
+done < "$PACKAGESLISTFILE"
