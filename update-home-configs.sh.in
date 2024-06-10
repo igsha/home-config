@@ -44,7 +44,7 @@ while read -r dir; do
         SOURCE="$DOTFILESDIR/$dir/$line"
         if [[ ! -d "$TARGETDIR" ]]; then
             echo Creating dir $TARGETDIR ...
-            runorskip mkdir -p "$(dirname "$TARGETDIR")"
+            runorskip mkdir -p "$TARGETDIR"
         fi
 
         if [[ -e "$TARGET" ]]; then
