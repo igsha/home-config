@@ -9,8 +9,9 @@ EOM
 DOTFILESDIR=
 DRYRUN=0
 NODOT=0
+VERBOSE=0
 
-ARGS=$(getopt -u -o nhDp: -l dry-run,help,no-dotfiles,package-list: -- "$@")
+ARGS=$(getopt -u -o nhDp:v -l dry-run,help,no-dotfiles,package-list:,verbose -- "$@")
 eval "set -- $ARGS"
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -18,6 +19,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help) printf "%s\n" "${USAGE[@]}" && exit 0;;
         -D|--no-dotfiles) NODOT=1;;
         -p|--package-list) PACKAGESLISTFILE="$2"; shift;;
+        -v|--verbose) VERBOSE=1;;
         --) ;;
         *)
             [[ -z "$DOTFILESDIR" ]] || { echo "Too many dotfilesdir: $1"; exit 1; }
@@ -32,16 +34,22 @@ runorskip() {
     if [[ "$DRYRUN" -eq 0 ]]; then "$@"; fi
 }
 
-while read -r dir; do
+logverbose() {
+    if [[ "$VERBOSE" -eq 1 ]]; then echo "$@"; fi
+}
+
+readarray -t DIRS < "$PACKAGESLISTFILE"
+for dir in "${DIRS[@]}"; do
     SEARCHDIR="$DOTFILESDIR/$dir"
-    while read -r line; do
-        TARGET="$HOME/$line"
+    readarray -t FILES < <(find $SEARCHDIR \( -type f -o -type l \) -printf '%P\n')
+    for file in "${FILES[@]}"; do
+        TARGET="$HOME/$file"
         if [[ "$NODOT" -eq 0 ]]; then
             TARGET="$(sed 's/dot-/\./g' <<< "$TARGET")"
         fi
 
         TARGETDIR="$(dirname "$TARGET")"
-        SOURCE="$DOTFILESDIR/$dir/$line"
+        SOURCE="$DOTFILESDIR/$dir/$file"
         if [[ ! -d "$TARGETDIR" ]]; then
             echo Creating dir $TARGETDIR ...
             runorskip mkdir -p "$TARGETDIR"
@@ -50,10 +58,12 @@ while read -r dir; do
         if [[ -e "$TARGET" ]]; then
             if [[ "$(realpath "$SOURCE")" != "$(realpath "$TARGET")" ]]; then
                 echo "Remove $TARGET cause it is not $SOURCE" && exit 3
+            else
+                logverbose "Check $TARGET => $SOURCE"
             fi
         else
             echo "Creating link $SOURCE => $TARGET ..."
             runorskip ln -s "$SOURCE" "$TARGET"
         fi
-    done < <(find $SEARCHDIR \( -type f -o -type l \) -printf '%P\n')
-done < "$PACKAGESLISTFILE"
+    done
+done

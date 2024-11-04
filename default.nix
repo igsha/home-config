@@ -4,14 +4,12 @@ let
   formPackage = dir: basedir: p: lib.strings.removePrefix "/" "${lib.strings.removePrefix basedir dir}/${p}";
   mapPackages = ps: dir: basedir: builtins.map (formPackage dir basedir) ps;
   getPackagesList = cfg: basedir: lib.flatten (builtins.map (x: mapPackages x.packages x.dir basedir) (builtins.attrValues cfg));
-  packages-list = cfg: basedir: pkgs.writeText "packages.txt"
-    (builtins.concatStringsSep "\n" (getPackagesList cfg basedir));
   update-home-configs = cfg: basedir: pkgs.substituteAll {
     name = "update-home-configs";
     src = ./update-home-configs.sh.in;
     isExecutable = true;
     dir = "/bin/";
-    packagesList = pkgs.writeText "packages.txt" (builtins.concatStringsSep "\n" (getPackagesList cfg basedir));
+    packagesList = pkgs.writeText "packages.txt" (lib.strings.concatLines (getPackagesList cfg basedir));
   };
   packageOps = {
     options = {
