@@ -1,47 +1,32 @@
 { config, lib, pkgs, ... }:
 
 let
-  formPackage = dir: basedir: p: lib.strings.removePrefix "/" "${lib.strings.removePrefix basedir dir}/${p}";
-  mapPackages = ps: dir: basedir: builtins.map (formPackage dir basedir) ps;
-  getPackagesList = cfg: basedir: lib.flatten (builtins.map (x: mapPackages x.packages x.dir basedir) (builtins.attrValues cfg));
-  update-home-configs = cfg: basedir: pkgs.substituteAll {
+  update-home-configs = cfg: basedir: let
+    allPaths = builtins.attrValues cfg;
+    removeBaseDir = lib.path.removePrefix basedir;
+    pathList = builtins.map removeBaseDir allPaths;
+    text = lib.strings.concatLines pathList;
+  in pkgs.substituteAll {
     name = "update-home-configs";
     src = ./update-home-configs.sh.in;
     isExecutable = true;
     dir = "/bin/";
-    packagesList = pkgs.writeText "packages.txt" (lib.strings.concatLines (getPackagesList cfg basedir));
-  };
-  packageOps = {
-    options = {
-      packages = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        description = "Package names to install";
-        example = [ "sx" "vifm" "mpv" ];
-      };
-      dir = lib.mkOption {
-        type = lib.types.path;
-        description = "Path to the folder with packages";
-        example = ./home-config;
-      };
-    };
+    packagesList = pkgs.writeText "packages.txt" text;
   };
 
 in {
   options = {
     home-config = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.submodule packageOps);
-      description = "Package set";
+      type = lib.types.attrsOf lib.types.path;
+      description = "Path to the folder with configs";
       example = {
-        i3 = {
-          packages = [ "sx" "vifm" "mpv" ];
-          dir = ./home-config;
-        };
+        i3 = ./home-config;
       };
     };
     home-config-basedir = lib.mkOption {
-      type = lib.types.str;
+      type = lib.types.path;
       description = "The basedir which update-home-configs will replace by the first argument";
-      example = builtins.toString ./.;
+      example = ./.;
     };
   };
 

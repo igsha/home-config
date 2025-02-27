@@ -14,7 +14,7 @@ In flake:
       modules = [
         home-config.nixosModules.default
         ({ lib, ... } : {
-          home-config-basedir = lib.mkForce (builtins.toString ./.);
+          home-config-basedir = lib.mkForce ./.;
         })
         ...
       ];
@@ -30,8 +30,10 @@ Create `home-config` folder with a `.config` stuff and add to configuration:
 {
   ...
   home-config.lala = {
-    packages = [ "lala" ]; # lala - is folder inside home-config folder
-    dir = builtins.toString ./home-config;
+    dir = ./home-config;
   };
 }
 ```
+
+It is possible to use `dot-` prefix for hidden folders.
+E.g., `.config` transforms to `dot-config`.
