@@ -6,12 +6,13 @@ let
     removeBaseDir = lib.path.removePrefix basedir;
     pathList = builtins.map removeBaseDir allPaths;
     text = lib.strings.concatLines pathList;
-  in pkgs.substituteAll {
-    name = "update-home-configs";
-    src = ./update-home-configs.sh.in;
+  in pkgs.replaceVarsWith {
+    src = ./update-home-configs.sh;
     isExecutable = true;
-    dir = "/bin/";
-    packagesList = pkgs.writeText "packages.txt" text;
+    dir = "bin";
+    replacements = {
+      packagesList = pkgs.writeText "packages.txt" text;
+    };
   };
 
 in {
